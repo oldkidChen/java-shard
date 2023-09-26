@@ -1,7 +1,9 @@
 package com.shard.lambda;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author chen_jinglong
@@ -28,9 +30,25 @@ public class IteratorExample {
             System.out.println(o);
         });
         // 当lambda调用的方法参数和传参一致时，就可以用上方一行的简易写法
-
-
-
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
