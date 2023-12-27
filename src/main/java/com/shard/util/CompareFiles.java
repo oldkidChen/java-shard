@@ -29,8 +29,8 @@ public class CompareFiles {
     }
 
     public static void main(String[] args) {
-        String file1Path = "C:/Users/bqmcj/Desktop/file1.txt";
-        String file2Path = "C:/Users/bqmcj/Desktop/file2.txt";
+        String file1Path = "C:/Users/bqmcj/Desktop/1.txt";
+        String file2Path = "C:/Users/bqmcj/Desktop/2.txt";
 
         try {
             Map<String, String> statusesFile1 = extractStatuses(file1Path);

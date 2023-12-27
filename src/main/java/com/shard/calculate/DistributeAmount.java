@@ -3,7 +3,6 @@ package com.shard.calculate;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -14,11 +13,11 @@ import java.util.List;
 public class DistributeAmount {
     public static void main(String[] args) {
         // 生成3个商品放入List
-        Goods goods1 = new Goods(1,"商品1",new BigDecimal("3000"),new BigDecimal("0.00"));
-//        Goods goods2 = new Goods(2,"商品2",new BigDecimal("5"),new BigDecimal("0.00"));
-//        Goods goods3 = new Goods(3,"商品3",new BigDecimal("0.01"),new BigDecimal("0.00"));
+        Goods goods1 = new Goods(1,"商品1",new BigDecimal("40"),new BigDecimal("0.00"));
+        Goods goods2 = new Goods(2,"商品2",new BigDecimal("40"),new BigDecimal("0.00"));
+        Goods goods3 = new Goods(3,"商品3",new BigDecimal("30"),new BigDecimal("0.00"));
 
-        List<Goods> goodsList = Arrays.asList(goods1);
+        List<Goods> goodsList = Arrays.asList(goods1,goods2,goods3);
         for (Goods goods : goodsList) {
             System.out.println(goods.toString());
         }
@@ -31,7 +30,9 @@ public class DistributeAmount {
 //        DistributeResult result = calculateDistribution(goodsList,new BigDecimal("0.5"));
 //        System.out.println("总共使用的折扣金额："+result.getSumDistributeAmount());
 //        result.getGoodsList().forEach(System.out::println);
-        setDistribution(goodsList,new BigDecimal("0.01"));
+//        setDistribution(goodsList,new BigDecimal("100"));
+//        goodsList.forEach(System.out::println);
+        setDistributionAllDeductionAmount(goodsList,new BigDecimal("100"));
         goodsList.forEach(System.out::println);
 
     }
@@ -268,6 +269,79 @@ public class DistributeAmount {
         lastItem.setPayAmount(lastItem.getPayAmount().subtract(remainingAmount));
         BigDecimal sumDistributedAmount = goodsList.stream().map(o -> o.getDistributeAmount()).reduce(BigDecimal.ZERO, BigDecimal::add);
         System.out.println("正常分摊完成,总共使用分摊金额"+sumDistributedAmount+"元");
+        return goodsList;
+    }
+
+    /**
+     * 出现任意分摊金额小于0.01元时，将抵扣金额赋值给最后一个商品（完全用尽抵扣余额参数）
+     * @param goodsList
+     * @param deductionAmount
+     * @return
+     */
+    public static List<Goods> setDistributionAllDeductionAmount(List<Goods> goodsList, BigDecimal deductionAmount) {
+        BigDecimal totalPayAmount = BigDecimal.ZERO;
+
+        // 计算总实付金额
+        for (Goods goods : goodsList) {
+            totalPayAmount = totalPayAmount.add(goods.getPayAmount());
+        }
+        System.out.println("总实付金额：" + totalPayAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN).doubleValue());
+
+        goodsList.sort((goods1,goods2)-> goods1.getPayAmount().compareTo(goods2.getPayAmount()));
+
+        // 检查抵扣金额是否小于0.1
+        if (deductionAmount.compareTo(new BigDecimal("0.1")) < 0) {
+            Goods lastGoods = goodsList.get(goodsList.size() - 1);
+            lastGoods.setDistributeAmount(deductionAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN));
+            lastGoods.setPayAmount(lastGoods.getPayAmount().subtract(deductionAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN)));
+            System.out.println("抵扣金额小于0.1，直接将抵扣金额赋值给最后一个商品");
+            return goodsList;
+        }
+
+        BigDecimal remainingDeduction = deductionAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN);
+
+        for (int i = 0; i < goodsList.size(); i++) {
+            Goods goods = goodsList.get(i);
+            BigDecimal ratio = goods.getPayAmount().divide(totalPayAmount, 10, BigDecimal.ROUND_HALF_EVEN);
+            BigDecimal distribute = ratio.multiply(deductionAmount).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+
+            // 检查分摊金额是否小于0.01,true=>将前面的商品分摊金额清零，将剩余的抵扣金额赋值给最后一个商品
+            if (distribute.compareTo(new BigDecimal("0.01")) < 0) {
+                for (int j = 0; j <= i; j++) {
+                    goodsList.get(j).setPayAmount(goodsList.get(j).getPayAmount().add(goodsList.get(j).getDistributeAmount()));
+                    goodsList.get(j).setDistributeAmount(BigDecimal.ZERO);
+                }
+
+                Goods lastGoods = goodsList.get(goodsList.size() - 1);
+                lastGoods.setDistributeAmount(deductionAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN));
+                lastGoods.setPayAmount(lastGoods.getPayAmount().subtract(deductionAmount.setScale(2, BigDecimal.ROUND_HALF_EVEN)));
+                System.out.println("商品" + goods.getGoodsId() + "分摊金额:"+distribute.doubleValue()+"小于0.01，直接将抵扣金额赋值给最后一个商品");
+                return goodsList;
+            }
+
+            goods.setDistributeAmount(distribute);
+            goods.setPayAmount(goods.getPayAmount().subtract(distribute));
+            remainingDeduction = remainingDeduction.subtract(distribute);
+            System.out.println("商品" + goods.getGoodsId() + "分摊金额：" + distribute.doubleValue());
+        }
+
+        // 将剩余的抵扣金额赋值给最后一个商品
+        // 处理分摊金额除不尽的情况，累加到最后一个商品
+        BigDecimal stepCalAmount = goodsList.stream().map(item -> item.getDistributeAmount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remainingAmount = deductionAmount.subtract(stepCalAmount).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+
+        if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
+            System.out.println("抵扣金额除不尽，将剩余的"+remainingAmount+"赋值给最贵或最后一个商品,重新分配之后的结果:");
+            Goods lastItem = goodsList.get(goodsList.size() - 1);
+            lastItem.setDistributeAmount(lastItem.getDistributeAmount().add(remainingAmount));
+            lastItem.setPayAmount(lastItem.getPayAmount().subtract(remainingAmount));
+            for (Goods goods : goodsList) {
+                System.out.println("商品" + goods.getGoodsId() + "分摊金额：" + goods.getDistributeAmount().doubleValue());
+            }
+        }
+
+        BigDecimal sumDistributedAmount = goodsList.stream().map(o -> o.getDistributeAmount()).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, BigDecimal.ROUND_HALF_EVEN);
+        System.out.println("正常分摊完成,总共使用分摊金额" + sumDistributedAmount + "元");
         return goodsList;
     }
 }

@@ -22,7 +22,7 @@ public class RegexpFile {
         // 找出两个数组中不同的元素，并放到新的数组中
         ArrayList<Integer> res = getDiff(mallIds, saasIds);
         System.out.println(res);
-        String filePath = "D:\\备份\\9.16修复数据\\13.log";
+        String filePath = "D:\\备份\\9.16修复数据\\11.log";
         /** 创建自营订单 开始*/
 //        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 //            String logLine;
